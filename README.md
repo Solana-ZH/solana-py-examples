@@ -1,6 +1,6 @@
 # Solana Cookbook for Python
 
-The Solana Cookbook is a developer resource that provides examples and references for building applications on Solana. Each example and reference will focus on specific aspects of Solana development while providing additional details and usage examples.
+The [`Solana Cookbook`](https://solana.com/zh/developers/cookbook) is a developer resource that provides examples and references for building applications on Solana. Each example and reference will focus on specific aspects of Solana development while providing additional details and usage examples.
 
 Built with  [`solana-py`](https://github.com/michaelhly/solana-py) library.
 
@@ -53,6 +53,11 @@ pip install -r requirements.txt
 | Burn Tokens | How to burn tokens from an account | [07_burn_tokens.py](Token%20Operations/07_burn_tokens.py) |
 | Transfer Tokens | How to transfer tokens between accounts | [08_transfer_tokens.py](Token%20Operations/08_transfer_tokens.py) |
 | Close Token Account | How to close a token account | [09_close_token_account.py](Token%20Operations/09_close_token_account.py) |
+| Get All Token Accounts by Owner | How to get all token accounts owned by an address | [10_get_all_token_accounts_by_owner.py](Token%20Operations/10_get_all_token_accounts_by_owner.py) |
+| Set Authority | How to set authority on token accounts or mints | [11_set_authority.py](Token%20Operations/11_set_authority.py) |
+| Delegate Token Account | How to delegate token accounts | [12_delegate_token_account.py](Token%20Operations/12_delegate_token_account.py) |
+| Revoke Delegate | How to revoke a token delegate | [13_revoke_delegate.py](Token%20Operations/13_revoke_delegate.py) |
+| Wrapped SOL | How to use wrapped SOL | [14_wrapped_sol.py](Token%20Operations/14_wrapped_sol.py) |
 
 ### Transaction Operations
 
