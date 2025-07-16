@@ -12,15 +12,44 @@ from solders.message import MessageV0
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
 async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_tables=[]):
-    """Simulate to get compute units - simplified version"""
-    # In a real implementation, you'd simulate the transaction here
-    # For now, return a reasonable estimate
-    return 200000
+    """Simulate transaction to get actual compute units needed"""
+    try:
+        # Create a temporary transaction for simulation
+        recent_blockhash = await rpc.get_latest_blockhash()
+        
+        # Create message for simulation
+        message = MessageV0.try_compile(
+            payer=payer_pubkey,
+            instructions=instructions,
+            address_lookup_table_accounts=lookup_tables,
+            recent_blockhash=recent_blockhash.value.blockhash
+        )
+        
+        # Create transaction for simulation
+        transaction = VersionedTransaction(message, [])
+        
+        # Simulate transaction to get compute units
+        simulation_result = await rpc.simulate_transaction(transaction)
+        
+        if simulation_result.value.err:
+            print(f"Simulation error: {simulation_result.value.err}")
+            return 200000  # Fallback value
+        
+        # Get compute units used from simulation
+        units_consumed = simulation_result.value.units_consumed
+        if units_consumed:
+            return units_consumed
+        else:
+            return 200000  # Fallback value
+            
+    except Exception as e:
+        print(f"Error during simulation: {e}")
+        return 200000  # Fallback value
 
 async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[]):
     """Build optimal transaction similar to JavaScript version"""
-    
-    # Equivalent to Promise.all in JavaScript
+    # See the equivalent JavaScript guide for context here:
+    # https://solana.com/zh/developers/guides/advanced/how-to-request-optimal-compute
     micro_lamports = 100  # Get optimal priority fees
     units = await get_simulation_compute_units(rpc, instructions, signer.pubkey(), lookup_tables)
     recent_blockhash = await rpc.get_latest_blockhash()

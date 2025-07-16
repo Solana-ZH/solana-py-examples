@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
 Solana Cookbook - Offline Transactions
+
+To complete an offline transaction:
+1. Create Transaction
+2. Sign Transaction  
+3. Recover Transaction
+4. Send Transaction
 """
 
 import asyncio
@@ -9,73 +15,110 @@ from solders.keypair import Keypair
 from solders.system_program import transfer, TransferParams
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
+from solders.pubkey import Pubkey
 from solders.hash import Hash
+import nacl.signing
+import nacl.encoding
 import base58
 
-async def create_offline_transaction():
-    """Create a transaction offline without network connection"""
+
+async def main():
+    # Create connection
+    connection = AsyncClient("http://localhost:8899")
     
-    sender = Keypair()
-    recipient = Keypair()
+    # Create an example tx, alice transfer to bob and feePayer is `fee_payer`
+    # alice and fee_payer are signers in this tx
+    fee_payer = Keypair()
     
-    amount = 1_000_000_000  # 1 SOL
+    # Airdrop to fee_payer
+    airdrop_resp = await connection.request_airdrop(fee_payer.pubkey(), 1_000_000_000)
+    await connection.confirm_transaction(airdrop_resp.value)
     
-    # In offline mode, you need to provide a recent blockhash
-    # This would typically be obtained from a previous network call
-    # For demo purposes, we'll use a dummy blockhash
-    recent_blockhash = Hash.from_string("11111111111111111111111111111111")
+    alice = Keypair()
+    # Airdrop to alice
+    airdrop_resp = await connection.request_airdrop(alice.pubkey(), 1_000_000_000)
+    await connection.confirm_transaction(airdrop_resp.value)
     
-    # Create transfer instruction
+    bob = Keypair()
+    
+    # 1. Create Transaction
     transfer_instruction = transfer(
         TransferParams(
-            from_pubkey=sender.pubkey(),
-            to_pubkey=recipient.pubkey(),
-            lamports=amount
+            from_pubkey=alice.pubkey(),
+            to_pubkey=bob.pubkey(),
+            lamports=int(0.1 * 1_000_000_000)  # 0.1 SOL
         )
     )
     
-    # Create message
+    # Get recent blockhash
+    recent_blockhash_resp = await connection.get_latest_blockhash()
+    recent_blockhash = recent_blockhash_resp.value.blockhash
+    
+    # Create transaction message
     message = MessageV0.try_compile(
-        payer=sender.pubkey(),
+        payer=fee_payer.pubkey(),
         instructions=[transfer_instruction],
         address_lookup_table_accounts=[],
         recent_blockhash=recent_blockhash
     )
     
-    # Create and sign transaction
-    transaction = VersionedTransaction(message, [sender])
+    # Serialize the message that needs to be signed
+    message_bytes = bytes(message)
+    print(f"Message to sign (length: {len(message_bytes)} bytes)")
     
-    return {
-        "transaction": transaction,
-        "sender": sender.pubkey(),
-        "recipient": recipient.pubkey(),
-        "amount": amount,
-        "blockhash": recent_blockhash
-    }
-
-async def main():
-    print("=== Creating Offline Transaction ===")
+    # 2. Sign Transaction
+    # Use nacl to sign the message
+    fee_payer_signing_key = nacl.signing.SigningKey(bytes(fee_payer)[0:32])
+    fee_payer_signature = fee_payer_signing_key.sign(message_bytes).signature
     
-    # Create transaction offline
-    offline_tx = await create_offline_transaction()
+    alice_signing_key = nacl.signing.SigningKey(bytes(alice)[0:32])
+    alice_signature = alice_signing_key.sign(message_bytes).signature
     
-    print(f"Sender: {offline_tx['sender']}")
-    print(f"Recipient: {offline_tx['recipient']}")
-    print(f"Amount: {offline_tx['amount'] / 1_000_000_000} SOL")
-    print(f"Blockhash: {offline_tx['blockhash']}")
-    print(f"Transaction created offline successfully")
+    print(f"Fee payer signature: {base58.b58encode(fee_payer_signature).decode()}")
+    print(f"Alice signature: {base58.b58encode(alice_signature).decode()}")
     
-    # Serialize transaction for storage or transmission
-    serialized = bytes(offline_tx['transaction'])
-    print(f"Serialized transaction length: {len(serialized)} bytes")
-    print(f"Serialized (base58): {base58.b58encode(serialized).decode()[:50]}...")
+    # 3. Recover Transaction
+    
+    # You can verify signatures before recovering the transaction
+    fee_payer_verify_key = nacl.signing.VerifyKey(bytes(fee_payer.pubkey()))
+    try:
+        fee_payer_verify_key.verify(message_bytes, fee_payer_signature)
+        print("✓ Fee payer signature verified")
+    except nacl.exceptions.BadSignatureError:
+        print("✗ Fee payer signature verification failed")
+    
+    alice_verify_key = nacl.signing.VerifyKey(bytes(alice.pubkey()))
+    try:
+        alice_verify_key.verify(message_bytes, alice_signature)
+        print("✓ Alice signature verified")
+    except nacl.exceptions.BadSignatureError:
+        print("✗ Alice signature verification failed")
+    
+    # 3. Recover Transaction
+    print("\n=== Recover and Send Transaction ===")
+    recover_tx = VersionedTransaction(message, [fee_payer, alice])
+    
+    # 4. Send transaction
+    try:
+        txhash = await connection.send_raw_transaction(bytes(recover_tx))
+        print(f"Transaction hash: {txhash}")
+        
+        # Confirm transaction
+        await connection.confirm_transaction(txhash.value)
+        print("✓ Transaction confirmed")
+    except Exception as e:
+        print(f"Transaction failed: {e}")
+    
+    # Serialize for transmission
+    serialized_tx = bytes(recover_tx)
+    print(f"Serialized transaction: {base58.b58encode(serialized_tx).decode()[:100]}...")
     
     print("\n=== Note ===")
-    print("In a real scenario:")
-    print("1. Get a recent blockhash from the network")
-    print("2. Create and sign the transaction offline")
-    print("3. Serialize the transaction")
-    print("4. Later, broadcast the serialized transaction to the network")
+    print("If this process takes too long, your recent blockhash will expire (after 150 blocks).")
+    print("You can use 'durable nonce' to avoid blockhash expiration.")
+    
+    await connection.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -9,19 +9,8 @@ from solders.keypair import Keypair
 from solders.system_program import transfer, TransferParams
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
-from solders.instruction import Instruction
+from spl.memo.instructions import create_memo, MemoParams
 from solders.pubkey import Pubkey
-
-# Memo Program ID
-MEMO_PROGRAM_ID = Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr")
-
-def create_memo_instruction(memo_text: str, signer_pubkey: Pubkey) -> Instruction:
-    """Create a memo instruction"""
-    return Instruction(
-        program_id=MEMO_PROGRAM_ID,
-        accounts=[],
-        data=memo_text.encode('utf-8')
-    )
 
 async def main():
     rpc = AsyncClient("https://api.devnet.solana.com")
@@ -46,7 +35,13 @@ async def main():
         )
         
         # Create memo instruction
-        memo_instruction = create_memo_instruction(memo_text, sender.pubkey())
+        memo_instruction = create_memo(
+            MemoParams(
+                program_id=Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                signer=sender.pubkey(),
+                message=memo_text.encode('utf-8')
+            )
+        )
         
         # Create message with both instructions
         message = MessageV0.try_compile(
