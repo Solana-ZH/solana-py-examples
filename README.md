@@ -97,21 +97,6 @@ python 01_create_token.py
 - solders
 - spl-token
 
-## Network Configuration
-
-Most examples are configured to use Solana Devnet. To use a different network, modify the RPC endpoint in the examples:
-
-```python
-# Devnet (default)
-rpc = AsyncClient("https://api.devnet.solana.com")
-
-# Mainnet
-rpc = AsyncClient("https://api.mainnet-beta.solana.com")
-
-# Local
-rpc = AsyncClient("http://localhost:8899")
-```
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
